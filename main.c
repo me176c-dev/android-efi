@@ -10,6 +10,7 @@
 #include "guid.h"
 #include "android.h"
 #include "linux.h"
+#include "graphics.h"
 
 static EFI_STATUS load_kernel(EFI_HANDLE image, VOID **boot_params) {
     // Check command line arguments for partition GUID
@@ -116,8 +117,13 @@ boot_params_err:
     return err;
 }
 
+extern struct graphics_image splash_image;
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
     InitializeLib(image, system_table);
+
+    // Display splash image
+    graphics_display_image(&splash_image);
 
     VOID *boot_params;
     EFI_STATUS err = load_kernel(image, &boot_params);

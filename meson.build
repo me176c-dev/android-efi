@@ -24,12 +24,19 @@ efi_include = include_directories(
 efi_lds = '/usr/lib/elf_' + arch + '_efi.lds'
 efi_crt = '/usr/lib/crt0-efi-' + arch + '.o'
 
+# Splash screen
+subdir('png2efi')
+
+splash_src = png2efi.process('splash.png')
+
 android_efi_lib = shared_library('android-efi',
     'main.c',
     'guid.c',
     'partition.c',
     'linux.c',
     'malloc.c',
+    'graphics.c',
+    splash_src,
 
     include_directories: [efi_include],
     c_args: [
