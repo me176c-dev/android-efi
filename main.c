@@ -75,20 +75,19 @@ static EFI_STATUS load_kernel(EFI_HANDLE image, VOID **boot_params) {
     }
 
     // Prepare command line
-    UINT32 cmdline_len = android_cmdline_len(&android_image);
-
-    // Allocate command line
-    err = linux_allocate_cmdline(kernel_header, cmdline_len);
+    CHAR8 *cmdline;
+    err = linux_allocate_cmdline(kernel_header, &cmdline);
     if (err) {
-        goto ramdisk_err;
+        goto kernel_err;
     }
 
-    android_copy_cmdline(&android_image, linux_cmdline_pointer(kernel_header), cmdline_len);
+    // Copy command line
+    android_copy_cmdline(&android_image, cmdline);
 
     // Allocate ramdisk memory
     err = linux_allocate_ramdisk(kernel_header, android_ramdisk_size(&android_image));
     if (err) {
-        goto kernel_err;
+        goto cmdline_err;
     }
 
     // Load ramdisk
@@ -102,11 +101,11 @@ static EFI_STATUS load_kernel(EFI_HANDLE image, VOID **boot_params) {
 
     return EFI_SUCCESS;
 
-/*cmdline_err:
-    linux_free_cmdline(kernel_header);*/
-
 ramdisk_err:
     linux_free_ramdisk(kernel_header);
+
+cmdline_err:
+    linux_free_cmdline(kernel_header);
 
 kernel_err:
     linux_free_kernel(kernel_header);

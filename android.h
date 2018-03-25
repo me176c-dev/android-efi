@@ -75,25 +75,19 @@ static inline EFI_STATUS android_load_ramdisk(struct android_image *image, VOID 
     return partition_read(&image->partition, android_ramdisk_offset(image), ramdisk, android_ramdisk_size(image));
 }
 
-static inline UINT32 android_cmdline_len(struct android_image *image) {
-    UINT32 len = (UINT32) strlena(image->header.cmdline);
-    if (len == (ANDROID_BOOT_ARGS_SIZE - 1)) {
-        // Check extra command line
-        len += strlena(image->header.extra_cmdline);
+static inline VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline) {
+    // Note: Command line is *not* null-terminated
+    CopyMem(cmdline, image->header.cmdline, ANDROID_BOOT_ARGS_SIZE);
+
+    if (cmdline[ANDROID_BOOT_ARGS_SIZE-1]) {
+        // Copy extra command line as well
+        CopyMem(&cmdline[ANDROID_BOOT_ARGS_SIZE], image->header.extra_cmdline, ANDROID_BOOT_EXTRA_ARGS_SIZE);
+
+        if (image->header.extra_cmdline[ANDROID_BOOT_EXTRA_ARGS_SIZE-1]) {
+            // Ensure to add null terminator
+            cmdline[ANDROID_BOOT_EXTRA_ARGS_SIZE] = 0;
+        }
     }
-
-    return len;
-}
-
-static inline VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline, UINT32 len) {
-    if (len >= ANDROID_BOOT_ARGS_SIZE) {
-        CopyMem(cmdline, image->header.cmdline, ANDROID_BOOT_ARGS_SIZE - 1);
-        CopyMem(&cmdline[ANDROID_BOOT_ARGS_SIZE], image->header.extra_cmdline, len - ANDROID_BOOT_ARGS_SIZE);
-    } else {
-        CopyMem(cmdline, image->header.cmdline, len);
-    }
-
-    cmdline[len] = 0;
 }
 
 #endif //ANDROID_EFI_ANDROID_H

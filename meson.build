@@ -26,7 +26,6 @@ efi_crt = '/usr/lib/crt0-efi-' + arch + '.o'
 
 # Splash screen
 subdir('png2efi')
-
 splash_src = png2efi.process('splash.png')
 
 android_efi_lib = shared_library('android-efi',

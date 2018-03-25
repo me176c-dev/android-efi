@@ -30,7 +30,7 @@ EFI_STATUS linux_allocate_boot_params(VOID **boot_params) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS linux_check_kernel_header(struct linux_setup_header *header) {
+EFI_STATUS linux_check_kernel_header(const struct linux_setup_header *header) {
     // Check that this is actually a kernel header
     if (header->boot_flag != SETUP_BOOT_FLAG || header->header != SETUP_HEADER_MAGIC) {
         Print(L"Kernel does not contain a valid setup header. Boot flag: 0x%x, header: 0x%x\n",
@@ -87,17 +87,15 @@ EFI_STATUS linux_allocate_ramdisk(struct linux_setup_header *header, UINT32 size
     return EFI_SUCCESS;
 }
 
-EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, UINT32 length) {
-    ++length; // For null terminator
-
+EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, CHAR8 **cmdline) {
     EFI_PHYSICAL_ADDRESS addr = UINT32_MAX;
-    EFI_STATUS err = malloc_high(length, &addr);
+    EFI_STATUS err = malloc_high(EFI_PAGE_SIZE, &addr);
     if (err) {
         return err;
     }
 
+    *cmdline = (CHAR8*) addr;
     header->cmd_line_ptr = (UINT32) addr;
-    header->cmdline_size = length;
     return EFI_SUCCESS;
 }
 

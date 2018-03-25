@@ -60,13 +60,13 @@ struct linux_setup_header {
 } __attribute__((packed));
 
 EFI_STATUS linux_allocate_boot_params(VOID **boot_params);
-EFI_STATUS linux_check_kernel_header(struct linux_setup_header *header);
+EFI_STATUS linux_check_kernel_header(const struct linux_setup_header *header);
 EFI_STATUS linux_allocate_kernel(struct linux_setup_header *header);
 EFI_STATUS linux_allocate_ramdisk(struct linux_setup_header *header, UINT32 size);
-EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, UINT32 length);
+EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, CHAR8 **cmdline);
 VOID linux_efi_boot(EFI_HANDLE image, VOID *boot_params);
 
-static inline UINT64 linux_kernel_offset(struct linux_setup_header *header) {
+static inline UINT64 linux_kernel_offset(const struct linux_setup_header *header) {
     return (UINT64) header->setup_sects * LINUX_SETUP_SECT_SIZE + LINUX_SETUP_SECT_SIZE;
 }
 
@@ -74,16 +74,12 @@ static inline struct linux_setup_header* linux_kernel_header(VOID *boot_params) 
     return (VOID*) ((UINTN) boot_params + LINUX_SETUP_HEADER_OFFSET);
 }
 
-static inline VOID* linux_kernel_pointer(struct linux_setup_header *header) {
+static inline VOID* linux_kernel_pointer(const struct linux_setup_header *header) {
     return (VOID*) (UINTN) header->code32_start;
 }
 
-static inline VOID* linux_ramdisk_pointer(struct linux_setup_header *header) {
+static inline VOID* linux_ramdisk_pointer(const struct linux_setup_header *header) {
     return (VOID*) (UINTN) header->ramdisk_image;
-}
-
-static inline CHAR8* linux_cmdline_pointer(struct linux_setup_header *header) {
-    return (VOID*) (UINTN) header->cmd_line_ptr;
 }
 
 VOID linux_free(VOID *boot_params);
@@ -96,7 +92,7 @@ static inline VOID linux_free_boot_params(VOID *boot_params) {
     }
 }
 
-static inline VOID linux_free_kernel(struct linux_setup_header *header) {
+static inline VOID linux_free_kernel(const struct linux_setup_header *header) {
     EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->code32_start,
                                        EFI_SIZE_TO_PAGES(header->init_size));
     if (err) {
@@ -104,15 +100,15 @@ static inline VOID linux_free_kernel(struct linux_setup_header *header) {
     }
 }
 
-static inline VOID linux_free_ramdisk(struct linux_setup_header *header) {
+static inline VOID linux_free_ramdisk(const struct linux_setup_header *header) {
     EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->ramdisk_image,
-                            EFI_SIZE_TO_PAGES(header->ramdisk_size));
+                                       EFI_SIZE_TO_PAGES(header->ramdisk_size));
     if (err) {
         Print(L"Failed to free ramdisk: %r\n", err);
     }
 }
 
-static inline VOID linux_free_cmdline(struct linux_setup_header *header) {
+static inline VOID linux_free_cmdline(const struct linux_setup_header *header) {
     EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->cmd_line_ptr,
                                        EFI_SIZE_TO_PAGES(header->cmdline_size));
     if (err) {
