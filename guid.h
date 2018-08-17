@@ -9,6 +9,6 @@
 
 #include <efi.h>
 
-BOOLEAN guid_parse(const CHAR16 *input, EFI_GUID *guid);
+BOOLEAN guid_parse(EFI_GUID *guid, const CHAR16 *input, UINTN length);
 
 #endif //ANDROID_EFI_GUID_H

@@ -31,8 +31,8 @@ DECLARE_PARSE_HEX(32)
 #define GUID_LENGTH  36
 #define CHECK_DASH(input) *((input)++) == '-'
 
-BOOLEAN guid_parse(const CHAR16 *input, EFI_GUID *guid) {
-    if (StrLen(input) != GUID_LENGTH) {
+BOOLEAN guid_parse(EFI_GUID *guid, const CHAR16 *input, UINTN length) {
+    if (length != GUID_LENGTH) {
         return FALSE;
     }
 

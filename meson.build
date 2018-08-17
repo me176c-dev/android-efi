@@ -31,7 +31,7 @@ splash_src = png2efi.process('splash.png')
 android_efi_lib = shared_library('android-efi',
     'main.c',
     'guid.c',
-    'partition.c',
+    'image.c',
     'linux.c',
     'malloc.c',
     'graphics.c',

@@ -9,7 +9,7 @@
 
 #include <efi.h>
 #include <efilib.h>
-#include "partition.h"
+#include "image.h"
 
 #define ANDROID_BOOT_MAGIC "ANDROID!"
 #define ANDROID_BOOT_MAGIC_SIZE 8
@@ -36,12 +36,12 @@ struct android_boot_image_header {
 } __attribute__((packed));
 
 struct android_image {
-    struct efi_partition partition;
+    struct efi_image image;
     struct android_boot_image_header header;
 };
 
 static inline EFI_STATUS android_open_image(struct android_image *image) {
-    EFI_STATUS err = partition_read(&image->partition, 0, &image->header, sizeof(image->header));
+    EFI_STATUS err = image_read(&image->image, 0, &image->header, sizeof(image->header));
     if (err) {
         return err;
     }
@@ -55,7 +55,7 @@ static inline EFI_STATUS android_open_image(struct android_image *image) {
 }
 
 static inline EFI_STATUS android_read_kernel(struct android_image *image, UINT64 offset, VOID *kernel, UINTN size) {
-    return partition_read(&image->partition, image->header.page_size + offset, kernel, size);
+    return image_read(&image->image, image->header.page_size + offset, kernel, size);
 }
 
 static inline EFI_STATUS android_load_kernel(struct android_image *image, UINT64 offset, VOID *kernel) {
@@ -72,7 +72,7 @@ static inline UINT32 android_ramdisk_size(struct android_image *image) {
 }
 
 static inline EFI_STATUS android_load_ramdisk(struct android_image *image, VOID *ramdisk) {
-    return partition_read(&image->partition, android_ramdisk_offset(image), ramdisk, android_ramdisk_size(image));
+    return image_read(&image->image, android_ramdisk_offset(image), ramdisk, android_ramdisk_size(image));
 }
 
 static inline VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline) {

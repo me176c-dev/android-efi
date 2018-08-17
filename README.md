@@ -1,9 +1,9 @@
 # android-efi
 
 android-efi is a simple x86 EFI bootloader for Android™ boot images.
-It accepts the partition GUID of an Android boot partition on the command line,
-loads the kernel, ramdisk and command line and finally hands over control to the
-kernel.
+It accepts the partition GUID and/or path of an Android boot image on the
+command line, loads the kernel, ramdisk and command line and finally hands over
+control to the kernel.
 
 ## Building
 android-efi is built with [Meson]:
@@ -14,10 +14,10 @@ ninja -C build
 ```
 
 ## Usage
-Run `android.efi` from an UEFI Shell using the partition UUID that contains the
-boot image.
+Run `android.efi` from an UEFI Shell using the partition UUID and/or the path
+to the boot image.
 
-With [systemd-boot]:
+Alternatively, with [systemd-boot]:
 
 ```
 title    Android
@@ -30,6 +30,29 @@ title    Recovery
 efi      /android.efi
 options  recovery 80868086-8086-8086-8086-000000000101
 ```
+
+In this case, the first argument is ignored because this would be `android.efi`
+when using the application in an UEFI shell.
+
+### Options
+- Boot from a boot image partition:
+
+  ```
+  80868086-8086-8086-8086-000000000100
+  ```
+
+- Boot from a boot image file on the EFI system partition:
+
+  ```
+  /boot.img
+  ```
+
+- Boot from a boot image file on another partition (must be FAT32, or otherwise
+  supported by an UEFI driver).
+  
+  ```
+  80868086-8086-8086-8086-000000000007/boot.img
+  ```
 
 ## License
 ```
