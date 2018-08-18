@@ -25,13 +25,13 @@ VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline) {
     // Note: Command line is *not* null-terminated
     CopyMem(cmdline, image->header.cmdline, ANDROID_BOOT_ARGS_SIZE);
 
-    if (cmdline[ANDROID_BOOT_ARGS_SIZE-1]) {
+    if (cmdline[ANDROID_BOOT_ARGS_SIZE - 1]) {
         // Copy extra command line as well
         CopyMem(&cmdline[ANDROID_BOOT_ARGS_SIZE], image->header.extra_cmdline, ANDROID_BOOT_EXTRA_ARGS_SIZE);
 
-        if (image->header.extra_cmdline[ANDROID_BOOT_EXTRA_ARGS_SIZE-1]) {
+        if (image->header.extra_cmdline[ANDROID_BOOT_EXTRA_ARGS_SIZE - 1]) {
             // Ensure to add null terminator
-            cmdline[ANDROID_BOOT_EXTRA_ARGS_SIZE] = 0;
+            cmdline[ANDROID_BOOT_ARGS_SIZE + ANDROID_BOOT_EXTRA_ARGS_SIZE] = 0;
         }
     }
 }
