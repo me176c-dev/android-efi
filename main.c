@@ -166,6 +166,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
     err = load_kernel(image, partition_guid, path, &boot_params);
     if (err) {
         Print(L"Failed to load kernel: %r\n", err);
+        uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
         return err;
     }
 
