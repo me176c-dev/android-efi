@@ -23,7 +23,7 @@ static int write_image(const char *identifier, const char *filename, png_image *
     }
 
     fprintf(file, "};\n");
-    fprintf(file, "struct graphics_image %s_image = {%d, %d, %s_blt};\n",
+    fprintf(file, "struct graphics_image %s_image = {%u, %u, %s_blt};\n",
             identifier, image->width, image->height, identifier);
 
     return fclose(file);
