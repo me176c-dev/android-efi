@@ -8,7 +8,6 @@
 #define ANDROID_EFI_LINUX_H
 
 #include <efi.h>
-#include <efilib.h>
 
 #define LINUX_BOOT_PARAMS_SIZE     0x4000
 #define LINUX_SETUP_HEADER_OFFSET  0x01f1
@@ -83,37 +82,9 @@ static inline VOID* linux_ramdisk_pointer(const struct linux_setup_header *heade
 }
 
 VOID linux_free(VOID *boot_params);
-
-static inline VOID linux_free_boot_params(VOID *boot_params) {
-    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) boot_params,
-                                       EFI_SIZE_TO_PAGES(LINUX_BOOT_PARAMS_SIZE));
-    if (err) {
-        Print(L"Failed to free boot params: %r\n", err);
-    }
-}
-
-static inline VOID linux_free_kernel(const struct linux_setup_header *header) {
-    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->code32_start,
-                                       EFI_SIZE_TO_PAGES(header->init_size));
-    if (err) {
-        Print(L"Failed to free kernel: %r\n", err);
-    }
-}
-
-static inline VOID linux_free_ramdisk(const struct linux_setup_header *header) {
-    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->ramdisk_image,
-                                       EFI_SIZE_TO_PAGES(header->ramdisk_size));
-    if (err) {
-        Print(L"Failed to free ramdisk: %r\n", err);
-    }
-}
-
-static inline VOID linux_free_cmdline(const struct linux_setup_header *header) {
-    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->cmd_line_ptr,
-                                       EFI_SIZE_TO_PAGES(header->cmdline_size));
-    if (err) {
-        Print(L"Failed to free cmdline: %r\n", err);
-    }
-}
+VOID linux_free_boot_params(VOID *boot_params);
+VOID linux_free_kernel(const struct linux_setup_header *header);
+VOID linux_free_ramdisk(const struct linux_setup_header *header);
+VOID linux_free_cmdline(const struct linux_setup_header *header);
 
 #endif //ANDROID_EFI_LINUX_H

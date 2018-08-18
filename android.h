@@ -8,7 +8,6 @@
 #define ANDROID_EFI_ANDROID_H
 
 #include <efi.h>
-#include <efilib.h>
 #include "image.h"
 
 #define ANDROID_BOOT_MAGIC "ANDROID!"
@@ -40,19 +39,7 @@ struct android_image {
     struct android_boot_image_header header;
 };
 
-static inline EFI_STATUS android_open_image(struct android_image *image) {
-    EFI_STATUS err = image_read(&image->image, 0, &image->header, sizeof(image->header));
-    if (err) {
-        return err;
-    }
-
-    if (CompareMem(image->header.magic, ANDROID_BOOT_MAGIC, ANDROID_BOOT_MAGIC_SIZE)) {
-        Print(L"Partition does not appear to be an Android boot partition\n");
-        return EFI_VOLUME_CORRUPTED;
-    }
-
-    return EFI_SUCCESS;
-}
+EFI_STATUS android_open_image(struct android_image *image);
 
 static inline EFI_STATUS android_read_kernel(struct android_image *image, UINT64 offset, VOID *kernel, UINTN size) {
     return image_read(&image->image, image->header.page_size + offset, kernel, size);
@@ -75,19 +62,6 @@ static inline EFI_STATUS android_load_ramdisk(struct android_image *image, VOID 
     return image_read(&image->image, android_ramdisk_offset(image), ramdisk, android_ramdisk_size(image));
 }
 
-static inline VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline) {
-    // Note: Command line is *not* null-terminated
-    CopyMem(cmdline, image->header.cmdline, ANDROID_BOOT_ARGS_SIZE);
-
-    if (cmdline[ANDROID_BOOT_ARGS_SIZE-1]) {
-        // Copy extra command line as well
-        CopyMem(&cmdline[ANDROID_BOOT_ARGS_SIZE], image->header.extra_cmdline, ANDROID_BOOT_EXTRA_ARGS_SIZE);
-
-        if (image->header.extra_cmdline[ANDROID_BOOT_EXTRA_ARGS_SIZE-1]) {
-            // Ensure to add null terminator
-            cmdline[ANDROID_BOOT_EXTRA_ARGS_SIZE] = 0;
-        }
-    }
-}
+VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline);
 
 #endif //ANDROID_EFI_ANDROID_H

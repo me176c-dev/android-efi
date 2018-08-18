@@ -6,6 +6,7 @@
 
 #include "linux.h"
 #include "malloc.h"
+#include <efilib.h>
 
 #define SETUP_BOOT_FLAG        0xAA55
 #define SETUP_HEADER_MAGIC     0x53726448  /* HdrS */
@@ -121,6 +122,38 @@ VOID linux_efi_boot(EFI_HANDLE image, VOID *boot_params) {
 #endif
 
     handover(image, ST, boot_params);
+}
+
+inline VOID linux_free_boot_params(VOID *boot_params) {
+    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) boot_params,
+                                       EFI_SIZE_TO_PAGES(LINUX_BOOT_PARAMS_SIZE));
+    if (err) {
+        Print(L"Failed to free boot params: %r\n", err);
+    }
+}
+
+inline VOID linux_free_kernel(const struct linux_setup_header *header) {
+    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->code32_start,
+                                       EFI_SIZE_TO_PAGES(header->init_size));
+    if (err) {
+        Print(L"Failed to free kernel: %r\n", err);
+    }
+}
+
+inline VOID linux_free_ramdisk(const struct linux_setup_header *header) {
+    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->ramdisk_image,
+                                       EFI_SIZE_TO_PAGES(header->ramdisk_size));
+    if (err) {
+        Print(L"Failed to free ramdisk: %r\n", err);
+    }
+}
+
+inline VOID linux_free_cmdline(const struct linux_setup_header *header) {
+    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->cmd_line_ptr,
+                                       EFI_SIZE_TO_PAGES(header->cmdline_size));
+    if (err) {
+        Print(L"Failed to free cmdline: %r\n", err);
+    }
 }
 
 VOID linux_free(VOID *boot_params) {
