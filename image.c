@@ -129,10 +129,8 @@ EFI_STATUS image_open(struct efi_image *image, EFI_HANDLE loader, EFI_HANDLE loa
     }
 
     if (path) {
-        // File
         return file_open(image, loader_device, path);
     } else {
-        // Partition
         return partition_open(image, loader);
     }
 }

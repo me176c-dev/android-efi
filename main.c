@@ -250,7 +250,7 @@ static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_HANDLE loader_device,
         goto ramdisk_err;
     }
 
-    // Close partition (not needed anymore)
+    // Close image (not needed anymore)
     image_close(&android_image.image, loader);
 
     return EFI_SUCCESS;

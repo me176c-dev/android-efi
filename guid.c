@@ -42,7 +42,7 @@ BOOLEAN guid_parse(EFI_GUID *guid, const CHAR16 *input, UINTN length) {
         && CHECK_DASH(input) && parse_hex8(&input, &guid->Data4[0]) && parse_hex8(&input, &guid->Data4[1])
         && CHECK_DASH(input)) {
 
-        for (int i = 2; i < 8; ++i) {
+        for (UINTN i = 2; i < 8; ++i) {
             if (!parse_hex8(&input, &guid->Data4[i])) {
                 return FALSE;
             }

@@ -39,5 +39,5 @@ EFI_STATUS graphics_display_image(struct graphics_image *image) {
     }
 
     return uefi_call_wrapper(graphics_output->Blt, 10, graphics_output, image->blt, EfiBltBufferToVideo,
-                      0, 0, x, y, image->width, image->height, 0);
+                             0, 0, x, y, image->width, image->height, 0);
 }

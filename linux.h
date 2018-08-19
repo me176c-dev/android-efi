@@ -14,7 +14,7 @@
 #define LINUX_SETUP_SECT_SIZE      512
 
 /*
- * Taken from the Linux kernel:
+ * Taken from the Linux kernel: (GPL-2.0)
  *   arch/x86/include/uapi/asm/bootparam.h (struct setup_header)
  */
 struct linux_setup_header {

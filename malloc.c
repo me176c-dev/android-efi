@@ -36,7 +36,7 @@ get_map:
 }
 
 /*
- * The following methods were originally based on:
+ * The following methods were originally based on parts of the Linux kernel: (GPL-2.0)
  *   drivers/firmware/efi/libstub/efi-stub-helper.c (efi_high_alloc/efi_low_alloc)
  *
  * Simplified quite a bit for use in android-efi.
