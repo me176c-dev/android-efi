@@ -88,7 +88,7 @@ EFI_STATUS linux_allocate_ramdisk(struct linux_setup_header *header, UINT32 size
     return EFI_SUCCESS;
 }
 
-EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, CHAR8 **cmdline) {
+EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, CHAR8 **cmdline, CHAR8 **cmdline_end) {
     EFI_PHYSICAL_ADDRESS addr = UINT32_MAX;
     EFI_STATUS err = malloc_high(EFI_PAGE_SIZE, &addr);
     if (err) {
@@ -96,6 +96,7 @@ EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, CHAR8 **cmd
     }
 
     *cmdline = (CHAR8*) addr;
+    *cmdline_end = (CHAR8*) (addr + EFI_PAGE_SIZE);
     header->cmd_line_ptr = (UINT32) addr;
     return EFI_SUCCESS;
 }

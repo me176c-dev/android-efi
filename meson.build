@@ -36,6 +36,7 @@ android_efi_lib = shared_library('android-efi',
     'linux.c',
     'malloc.c',
     'graphics.c',
+    'string.c',
     splash_src,
 
     include_directories: [efi_include],

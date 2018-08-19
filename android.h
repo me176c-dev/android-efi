@@ -62,6 +62,6 @@ static inline EFI_STATUS android_load_ramdisk(struct android_image *image, VOID 
     return image_read(&image->image, android_ramdisk_offset(image), ramdisk, android_ramdisk_size(image));
 }
 
-VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline);
+EFI_STATUS android_copy_cmdline(struct android_image *image, CHAR8* cmdline, UINTN max_length);
 
 #endif //ANDROID_EFI_ANDROID_H

@@ -7,59 +7,167 @@
 #include <efi.h>
 #include <efilib.h>
 
+#include "string.h"
 #include "guid.h"
 #include "android.h"
 #include "linux.h"
 #include "graphics.h"
 
-static EFI_STATUS parse_command_line(EFI_HANDLE loader, EFI_GUID **partition_guid, CHAR16 **path) {
-    // Check command line arguments for partition GUID
-    CHAR16 **argv;
-    INTN argc = GetShellArgcArgv(loader, &argv);
-    if (argc < 2) {
-        Print(L"Usage: android.efi <Boot Partition GUID/Path>\n");
-        return EFI_INVALID_PARAMETER;
+struct android_efi_options {
+    EFI_GUID guid;
+    EFI_GUID *partition_guid;
+    CHAR16 *path;
+
+    CHAR16 *kernel_parameters;
+    UINTN kernel_parameters_length;
+};
+
+enum command_line_argument {
+    FIRST_ARGUMENT,
+    IMAGE,
+    END,
+    KERNEL_PARAMETERS
+};
+
+#define STATE_SKIP_SPACES  (1 << 0)
+#define STATE_FOUND_DASH   (1 << 1)
+#define STATE_IMAGE_PATH   (1 << 2)
+
+static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, struct android_efi_options *options) {
+    CHAR16 *opt = loaded_image->LoadOptions;
+    if (!opt) {
+        goto out;
     }
 
-    CHAR16 *partition = argv[1];
+    UINTN length = loaded_image->LoadOptionsSize / sizeof(CHAR16);
 
-    // Find path separator
-    UINTN i;
-    for (i = 0; partition[i]; ++i) {
-        if (partition[i] == L'/' || partition[i] == L'\\') {
-            *path = &partition[i];
+    CHAR16 c;
+    UINT8 state = STATE_SKIP_SPACES;
+    enum command_line_argument argument = FIRST_ARGUMENT;
 
-            // Cleanup path (replace forward slashes with backward slashes)
-            for (UINTN j = i; partition[j]; ++j) {
-                if (partition[j] == L'/') {
-                    partition[j] = L'\\';
+    UINTN start = 0;
+
+    for (UINTN i = 0; i < length; ++i) {
+        c = opt[i];
+
+        // Detects two consecutive dashes ("--") that separate arguments from
+        // additional kernel parameters
+        if (state & STATE_FOUND_DASH) {
+            if (c == L'-') {
+                argument = KERNEL_PARAMETERS;
+                state |= STATE_SKIP_SPACES;
+                continue;
+            } else {
+                state &= ~STATE_FOUND_DASH;
+            }
+        }
+
+        // Skips redundant spaces between arguments
+        if (state & STATE_SKIP_SPACES) {
+            if (c == L' ') {
+                continue;
+            } else {
+                state &= ~STATE_SKIP_SPACES;
+                start = i;
+
+                if (c == L'-') {
+                    state |= STATE_FOUND_DASH;
+                    continue;
                 }
             }
-
-            break;
         }
+
+        if (c && c != L' ') {
+            switch (argument) {
+                case KERNEL_PARAMETERS:
+                    options->kernel_parameters = &opt[i];
+                    options->kernel_parameters_length = length - i;
+                    goto out; // Break the loop
+
+                case IMAGE:
+                    if (!(state & STATE_IMAGE_PATH) && (c == L'/' || c == L'\\')) {
+                        break;
+                    }
+                    // fallthrough
+                default:
+                    continue;
+            }
+        }
+
+        // Reached end of argument
+        UINTN len = i - start;
+
+        switch (argument) {
+            case IMAGE:
+                if (state & STATE_IMAGE_PATH) {
+                    // Parse file path
+                    options->path = StrnDuplicate(&opt[start], len);
+
+                    // Cleanup path (replace forward slashes with backward slashes)
+                    for (start = 0; start < len; ++start) {
+                        if (options->path[start] == L'/') {
+                            options->path[start] = L'\\';
+                        }
+                    }
+                } else if (len) {
+                    // Parse command line partition GUID
+                    options->partition_guid = &options->guid;
+                    if (!guid_parse(options->partition_guid, &opt[start], len)) {
+                        CHAR16 *guid = StrnDuplicate(&opt[start], len);
+                        Print(L"Expected valid partition GUID, got '%s'\n", guid);
+                        FreePool(guid);
+                        return EFI_INVALID_PARAMETER;
+                    }
+                }
+
+                state |= STATE_IMAGE_PATH; // Parse path next
+                break;
+
+            case KERNEL_PARAMETERS:
+                goto out; // Break the loop
+
+            default:
+                break;
+        }
+
+        if (!c) {
+            break; // Cancel early when encountering a null terminator
+        }
+
+        if (c == L' ') {
+            if (argument != END) {
+                ++argument;
+            }
+            state |= STATE_SKIP_SPACES;
+        }
+
+        start = i;
     }
 
-    if (i == 0) {
-        // File path without partition GUID
-        *partition_guid = NULL;
-        return EFI_SUCCESS;
-    }
-
-    // Parse command line partition GUID
-    if (!guid_parse(*partition_guid, partition, i)) {
-        Print(L"Expected valid partition GUID, got '%s'\n", argv[1]);
-        return EFI_INVALID_PARAMETER;
+out:
+    if (!options->partition_guid && !options->path) {
+        Print(L"Usage: android.efi <Boot Partition GUID/Path> [-- Additional Kernel Parameters...]\n");
+        goto err;
     }
 
     return EFI_SUCCESS;
+
+err:
+    if (options->path) {
+        FreePool(options->path);
+    }
+    return EFI_INVALID_PARAMETER;
 }
 
-static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_GUID *partition_guid, CHAR16 *path, VOID **boot_params) {
+static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_HANDLE loader_device,
+                              struct android_efi_options *options, VOID **boot_params) {
     struct android_image android_image;
 
     // Open partition
-    EFI_STATUS err = image_open(&android_image.image, loader, partition_guid, path);
+    EFI_STATUS err = image_open(&android_image.image, loader, loader_device, options->partition_guid, options->path);
+    if (options->path) {
+        FreePool(options->path);
+    }
     if (err) {
         return err;
     }
@@ -103,14 +211,32 @@ static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_GUID *partition_guid, CHAR1
     }
 
     // Prepare command line
-    CHAR8 *cmdline;
-    err = linux_allocate_cmdline(kernel_header, &cmdline);
+    CHAR8 *cmdline, *cmdline_end;
+    err = linux_allocate_cmdline(kernel_header, &cmdline, &cmdline_end);
     if (err) {
         goto kernel_err;
     }
 
+    if (options->kernel_parameters) {
+        // TODO: Check extra kernel parameters length?
+
+        // Prepend extra kernel parameters
+        cmdline = str_utf16_to_utf8(cmdline, options->kernel_parameters, options->kernel_parameters_length);
+
+        if (!cmdline[-1]) {
+            // Replace null terminator with space
+            cmdline[-1] = ' ';
+        } else {
+            // Add space
+            *cmdline++ = ' ';
+        }
+    }
+
     // Copy command line
-    android_copy_cmdline(&android_image, cmdline);
+    err = android_copy_cmdline(&android_image, cmdline, cmdline_end - cmdline);
+    if (err) {
+        goto cmdline_err;
+    }
 
     // Allocate ramdisk memory
     err = linux_allocate_ramdisk(kernel_header, android_ramdisk_size(&android_image));
@@ -149,12 +275,17 @@ extern struct graphics_image splash_image;
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
     InitializeLib(image, system_table);
 
-    EFI_GUID guid;
+    EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+    EFI_STATUS err = uefi_call_wrapper(BS->OpenProtocol, 6, image, &LoadedImageProtocol, (VOID**) &loaded_image,
+                                       image, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
+    if (err) {
+        Print(L"Failed to open LoadedImageProtocol\n");
+        return err;
+    }
 
     // Parse command line
-    EFI_GUID *partition_guid = &guid;
-    CHAR16 *path = NULL;
-    EFI_STATUS err = parse_command_line(image, &partition_guid, &path);
+    struct android_efi_options options = {0};
+    err = parse_command_line(loaded_image, &options);
     if (err) {
         return err;
     }
@@ -163,7 +294,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
     graphics_display_image(&splash_image);
 
     VOID *boot_params;
-    err = load_kernel(image, partition_guid, path, &boot_params);
+    err = load_kernel(image, loaded_image->DeviceHandle, &options, &boot_params);
     if (err) {
         Print(L"Failed to load kernel: %r\n", err);
         uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
@@ -172,5 +303,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
 
     linux_efi_boot(image, boot_params);
     linux_free(boot_params);
+    uefi_call_wrapper(BS->CloseProtocol, 4, image, &LoadedImageProtocol, image, NULL);
     return EFI_SUCCESS;
 }

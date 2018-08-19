@@ -70,23 +70,14 @@ static inline VOID partition_close(const struct efi_image *image, EFI_HANDLE loa
     }
 }
 
-static EFI_STATUS file_open(struct efi_image *image, EFI_HANDLE loader, CHAR16 *path) {
+static EFI_STATUS file_open(struct efi_image *image, EFI_HANDLE loader_device, CHAR16 *path) {
     EFI_STATUS err;
     EFI_HANDLE handle = image->partition_handle;
     if (handle) {
         image->partition_handle = NULL; // Used to differentiate between partition/file
     } else {
         // Load from the partition we were loaded on
-
-        EFI_LOADED_IMAGE *loaded_image;
-        err = uefi_call_wrapper(BS->OpenProtocol, 6, loader, &LoadedImageProtocol, (VOID **) &loaded_image,
-                                loader, NULL, EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-        if (err) {
-            Print(L"Failed to open LoadedImageProtocol\n");
-            return err;
-        }
-
-        handle = loaded_image->DeviceHandle;
+        handle = loader_device;
     }
 
     image->file.dir = LibOpenRoot(handle);
@@ -125,7 +116,8 @@ static inline VOID file_close(const struct efi_image_file *file) {
     }
 }
 
-EFI_STATUS image_open(struct efi_image *image, EFI_HANDLE loader, EFI_GUID *partition_guid, CHAR16 *path) {
+EFI_STATUS image_open(struct efi_image *image, EFI_HANDLE loader, EFI_HANDLE loader_device,
+                      EFI_GUID *partition_guid, CHAR16 *path) {
     EFI_STATUS err;
     if (partition_guid) {
         err = partition_find(partition_guid, &image->partition_handle);
@@ -138,7 +130,7 @@ EFI_STATUS image_open(struct efi_image *image, EFI_HANDLE loader, EFI_GUID *part
 
     if (path) {
         // File
-        return file_open(image, loader, path);
+        return file_open(image, loader_device, path);
     } else {
         // Partition
         return partition_open(image, loader);

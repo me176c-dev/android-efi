@@ -62,7 +62,7 @@ EFI_STATUS linux_allocate_boot_params(VOID **boot_params);
 EFI_STATUS linux_check_kernel_header(const struct linux_setup_header *header);
 EFI_STATUS linux_allocate_kernel(struct linux_setup_header *header);
 EFI_STATUS linux_allocate_ramdisk(struct linux_setup_header *header, UINT32 size);
-EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, CHAR8 **cmdline);
+EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, CHAR8 **cmdline, CHAR8 **cmdline_end);
 VOID linux_efi_boot(EFI_HANDLE image, VOID *boot_params);
 
 static inline UINT64 linux_kernel_offset(const struct linux_setup_header *header) {

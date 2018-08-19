@@ -21,7 +21,11 @@ EFI_STATUS android_open_image(struct android_image *image) {
     return EFI_SUCCESS;
 }
 
-VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline) {
+EFI_STATUS android_copy_cmdline(struct android_image *image, CHAR8* cmdline, UINTN max_length) {
+    if (max_length <= ANDROID_BOOT_ARGS_SIZE + ANDROID_BOOT_EXTRA_ARGS_SIZE) {
+        return EFI_BUFFER_TOO_SMALL;
+    }
+
     // Note: Command line is *not* null-terminated
     CopyMem(cmdline, image->header.cmdline, ANDROID_BOOT_ARGS_SIZE);
 
@@ -34,4 +38,6 @@ VOID android_copy_cmdline(struct android_image *image, CHAR8* cmdline) {
             cmdline[ANDROID_BOOT_ARGS_SIZE + ANDROID_BOOT_EXTRA_ARGS_SIZE] = 0;
         }
     }
+
+    return EFI_SUCCESS;
 }

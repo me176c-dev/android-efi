@@ -54,6 +54,12 @@ when using the application in an UEFI shell.
   80868086-8086-8086-8086-000000000007/boot.img
   ```
 
+- Add additional kernel parameters:
+
+  ```
+  /boot.img -- androidboot.mode=charger
+  ```
+
 ## License
 ```
 android-efi

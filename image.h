@@ -28,7 +28,8 @@ struct efi_image {
     };
 };
 
-EFI_STATUS image_open(struct efi_image *image, EFI_HANDLE loader, EFI_GUID *partition_guid, CHAR16 *path);
+EFI_STATUS image_open(struct efi_image *image, EFI_HANDLE loader, EFI_HANDLE loader_device,
+                      EFI_GUID *partition_guid, CHAR16 *path);
 EFI_STATUS image_read(const struct efi_image *image, UINT64 offset, VOID *buffer, UINTN buffer_size);
 VOID image_close(const struct efi_image *image, EFI_HANDLE loader);
 
