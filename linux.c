@@ -125,43 +125,21 @@ VOID linux_efi_boot(EFI_HANDLE image, VOID *boot_params) {
     handover(image, ST, boot_params);
 }
 
-inline VOID linux_free_boot_params(VOID *boot_params) {
-    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) boot_params,
-                                       EFI_SIZE_TO_PAGES(LINUX_BOOT_PARAMS_SIZE));
-    if (err) {
-        Print(L"Failed to free boot params: %r\n", err);
-    }
-}
-
-inline VOID linux_free_kernel(const struct linux_setup_header *header) {
-    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->code32_start,
-                                       EFI_SIZE_TO_PAGES(header->init_size));
-    if (err) {
-        Print(L"Failed to free kernel: %r\n", err);
-    }
-}
-
-inline VOID linux_free_ramdisk(const struct linux_setup_header *header) {
-    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->ramdisk_image,
-                                       EFI_SIZE_TO_PAGES(header->ramdisk_size));
-    if (err) {
-        Print(L"Failed to free ramdisk: %r\n", err);
-    }
-}
-
-inline VOID linux_free_cmdline(const struct linux_setup_header *header) {
-    EFI_STATUS err = uefi_call_wrapper(BS->FreePages, 2, (EFI_PHYSICAL_ADDRESS) header->cmd_line_ptr,
-                                       EFI_SIZE_TO_PAGES(header->cmdline_size));
-    if (err) {
-        Print(L"Failed to free cmdline: %r\n", err);
-    }
+static inline EFI_STATUS free_pages(EFI_PHYSICAL_ADDRESS addr, UINTN size) {
+    return uefi_call_wrapper(BS->FreePages, 2, addr, EFI_SIZE_TO_PAGES(size));
 }
 
 VOID linux_free(VOID *boot_params) {
     struct linux_setup_header *header = linux_kernel_header(boot_params);
+    if (header->code32_start) {
+        free_pages(header->code32_start, header->init_size);
+    }
+    if (header->ramdisk_image) {
+        free_pages(header->ramdisk_image, header->ramdisk_size);
+    }
+    if (header->cmd_line_ptr) {
+        free_pages(header->cmd_line_ptr, header->cmdline_size);
+    }
 
-    linux_free_kernel(header);
-    linux_free_ramdisk(header);
-    linux_free_cmdline(header);
-    linux_free_boot_params(boot_params);
+    free_pages((EFI_PHYSICAL_ADDRESS) boot_params, LINUX_BOOT_PARAMS_SIZE);
 }

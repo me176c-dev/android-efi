@@ -82,9 +82,5 @@ static inline VOID* linux_ramdisk_pointer(const struct linux_setup_header *heade
 }
 
 VOID linux_free(VOID *boot_params);
-VOID linux_free_boot_params(VOID *boot_params);
-VOID linux_free_kernel(const struct linux_setup_header *header);
-VOID linux_free_ramdisk(const struct linux_setup_header *header);
-VOID linux_free_cmdline(const struct linux_setup_header *header);
 
 #endif //ANDROID_EFI_LINUX_H

@@ -159,11 +159,43 @@ err:
     return EFI_INVALID_PARAMETER;
 }
 
+static EFI_STATUS prepare_cmdline(struct linux_setup_header *kernel_header, struct android_image *android_image,
+        struct android_efi_options *options) {
+    CHAR8 *cmdline, *cmdline_end;
+    EFI_STATUS err = linux_allocate_cmdline(kernel_header, &cmdline, &cmdline_end);
+    if (err) {
+        return err;
+    }
+
+    if (options->kernel_parameters) {
+        // TODO: Check extra kernel parameters length?
+
+        // Prepend extra kernel parameters
+        cmdline = str_utf16_to_utf8(cmdline, options->kernel_parameters, options->kernel_parameters_length);
+
+        if (!cmdline[-1]) {
+            // Replace null terminator with space
+            cmdline[-1] = ' ';
+        } else {
+            *cmdline++ = ' ';
+        }
+    }
+
+    return android_copy_cmdline(android_image, cmdline, cmdline_end - cmdline);
+}
+
+static EFI_STATUS load_ramdisk(struct linux_setup_header *kernel_header, struct android_image *android_image) {
+    EFI_STATUS err = linux_allocate_ramdisk(kernel_header, android_ramdisk_size(android_image));
+    if (err) {
+        return err;
+    }
+
+    return android_load_ramdisk(android_image, linux_ramdisk_pointer(kernel_header));
+}
+
 static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_HANDLE loader_device,
                               struct android_efi_options *options, VOID **boot_params) {
     struct android_image android_image;
-
-    // Open partition
     EFI_STATUS err = image_open(&android_image.image, loader, loader_device, options->partition_guid, options->path);
     if (options->path) {
         FreePool(options->path);
@@ -178,76 +210,40 @@ static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_HANDLE loader_device,
         return err;
     }
 
-    // Allocate boot params
     err = linux_allocate_boot_params(boot_params);
     if (err) {
         return err;
     }
 
     struct linux_setup_header *kernel_header = linux_kernel_header(*boot_params);
-
-    // Load kernel header
     err = android_read_kernel(&android_image, LINUX_SETUP_HEADER_OFFSET, (VOID*) kernel_header, sizeof(*kernel_header));
     if (err) {
-        goto boot_params_err;
+        goto err;
     }
 
-    // Prepare kernel header
     err = linux_check_kernel_header(kernel_header);
     if (err) {
-        goto boot_params_err;
+        goto err;
     }
 
-    // Allocate kernel memory
     err = linux_allocate_kernel(kernel_header);
     if (err) {
-        goto boot_params_err;
+        goto err;
     }
 
-    // Load kernel
     err = android_load_kernel(&android_image, linux_kernel_offset(kernel_header), linux_kernel_pointer(kernel_header));
     if (err) {
-        goto kernel_err;
+        goto err;
     }
 
-    // Prepare command line
-    CHAR8 *cmdline, *cmdline_end;
-    err = linux_allocate_cmdline(kernel_header, &cmdline, &cmdline_end);
+    err = prepare_cmdline(kernel_header, &android_image, options);
     if (err) {
-        goto kernel_err;
+        goto err;
     }
 
-    if (options->kernel_parameters) {
-        // TODO: Check extra kernel parameters length?
-
-        // Prepend extra kernel parameters
-        cmdline = str_utf16_to_utf8(cmdline, options->kernel_parameters, options->kernel_parameters_length);
-
-        if (!cmdline[-1]) {
-            // Replace null terminator with space
-            cmdline[-1] = ' ';
-        } else {
-            // Add space
-            *cmdline++ = ' ';
-        }
-    }
-
-    // Copy command line
-    err = android_copy_cmdline(&android_image, cmdline, cmdline_end - cmdline);
+    err = load_ramdisk(kernel_header, &android_image);
     if (err) {
-        goto cmdline_err;
-    }
-
-    // Allocate ramdisk memory
-    err = linux_allocate_ramdisk(kernel_header, android_ramdisk_size(&android_image));
-    if (err) {
-        goto cmdline_err;
-    }
-
-    // Load ramdisk
-    err = android_load_ramdisk(&android_image, linux_ramdisk_pointer(kernel_header));
-    if (err) {
-        goto ramdisk_err;
+        goto err;
     }
 
     // Close image (not needed anymore)
@@ -255,18 +251,8 @@ static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_HANDLE loader_device,
 
     return EFI_SUCCESS;
 
-ramdisk_err:
-    linux_free_ramdisk(kernel_header);
-
-cmdline_err:
-    linux_free_cmdline(kernel_header);
-
-kernel_err:
-    linux_free_kernel(kernel_header);
-
-boot_params_err:
-    linux_free_boot_params(*boot_params);
-
+err:
+    linux_free(*boot_params);
     return err;
 }
 
@@ -283,7 +269,6 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
         return err;
     }
 
-    // Parse command line
     struct android_efi_options options = {0};
     err = parse_command_line(loaded_image, &options);
     if (err) {
