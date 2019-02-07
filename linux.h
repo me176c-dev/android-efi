@@ -12,6 +12,7 @@
 #define LINUX_BOOT_PARAMS_SIZE     0x4000
 #define LINUX_SETUP_HEADER_OFFSET  0x01f1
 #define LINUX_SETUP_SECT_SIZE      512
+#define LINUX_CMDLINE_SIZE         EFI_PAGE_SIZE
 
 /*
  * Taken from the Linux kernel: (GPL-2.0)
@@ -62,7 +63,7 @@ EFI_STATUS linux_allocate_boot_params(VOID **boot_params);
 EFI_STATUS linux_check_kernel_header(const struct linux_setup_header *header);
 EFI_STATUS linux_allocate_kernel(struct linux_setup_header *header);
 EFI_STATUS linux_allocate_ramdisk(struct linux_setup_header *header, UINT32 size);
-EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header, CHAR8 **cmdline, CHAR8 **cmdline_end);
+EFI_STATUS linux_allocate_cmdline(struct linux_setup_header *header);
 VOID linux_efi_boot(EFI_HANDLE image, VOID *boot_params);
 
 static inline UINT64 linux_kernel_offset(const struct linux_setup_header *header) {
@@ -79,6 +80,10 @@ static inline VOID* linux_kernel_pointer(const struct linux_setup_header *header
 
 static inline VOID* linux_ramdisk_pointer(const struct linux_setup_header *header) {
     return (VOID*) (UINTN) header->ramdisk_image;
+}
+
+static inline CHAR8* linux_cmdline_pointer(const struct linux_setup_header *header) {
+    return (CHAR8*) (UINTN) header->cmd_line_ptr;
 }
 
 VOID linux_free(VOID *boot_params);

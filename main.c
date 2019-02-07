@@ -161,11 +161,13 @@ err:
 
 static EFI_STATUS prepare_cmdline(struct linux_setup_header *kernel_header, struct android_image *android_image,
         struct android_efi_options *options) {
-    CHAR8 *cmdline, *cmdline_end;
-    EFI_STATUS err = linux_allocate_cmdline(kernel_header, &cmdline, &cmdline_end);
+    EFI_STATUS err = linux_allocate_cmdline(kernel_header);
     if (err) {
         return err;
     }
+
+    CHAR8 *cmdline = linux_cmdline_pointer(kernel_header);
+    CHAR8 *cmdline_end = cmdline + LINUX_CMDLINE_SIZE;
 
     if (options->kernel_parameters) {
         // TODO: Check extra kernel parameters length?
