@@ -60,6 +60,12 @@ when using the application in an UEFI shell.
   /boot.img -- androidboot.mode=charger
   ```
 
+- Load additional init ramdisks (initrd) from files. The files must be on the same partition as the `android.efi` binary.
+
+  ```
+  80868086-8086-8086-8086-000000000100 -- initrd=/intel-ucode.img initrd=/acpi.img
+  ```
+
 ## License
 ```
 android-efi

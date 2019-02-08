@@ -33,6 +33,11 @@ enum command_line_argument {
 #define STATE_FOUND_DASH   (1 << 1)
 #define STATE_IMAGE_PATH   (1 << 2)
 
+#define RAMDISK_OPTION       "initrd="
+#define RAMDISK_OPTION_SIZE  (sizeof(RAMDISK_OPTION) - sizeof(RAMDISK_OPTION[0]))
+#define MAX_RAMDISK_COUNT    4
+#define MAX_PATH_LENGTH      256
+
 static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, struct android_efi_options *options) {
     CHAR16 *opt = loaded_image->LoadOptions;
     if (!opt) {
@@ -186,7 +191,116 @@ static EFI_STATUS prepare_cmdline(struct linux_setup_header *kernel_header, stru
     return android_copy_cmdline(android_image, cmdline, cmdline_end - cmdline);
 }
 
-static EFI_STATUS load_ramdisk(struct linux_setup_header *kernel_header, struct android_image *android_image) {
+static const CHAR8 *find_initrd_option(const CHAR8 *cmdline) {
+    const CHAR8 *tail = cmdline;
+    for (const CHAR8 *first = cmdline + RAMDISK_OPTION_SIZE; cmdline < first && *cmdline; ++cmdline);
+    for (; *cmdline; ++cmdline, ++tail) {
+        if (CompareMem(tail, RAMDISK_OPTION, RAMDISK_OPTION_SIZE) == 0) {
+            return cmdline;
+        }
+    }
+    return NULL;
+}
+
+static EFI_STATUS load_ramdisk_cmdline(EFI_HANDLE loader_device, const CHAR8 *cmdline,
+        struct linux_setup_header *kernel_header, struct android_image *android_image) {
+    EFI_FILE_HANDLE dir = LibOpenRoot(loader_device);
+    if (!dir) {
+        Print(L"Failed to open root directory\n");
+        return EFI_VOLUME_CORRUPTED;
+    }
+
+    UINT32 size = android_ramdisk_size(android_image);
+
+    EFI_STATUS err;
+    struct {
+        EFI_FILE_HANDLE handle;
+        UINTN size;
+    } files[MAX_RAMDISK_COUNT];
+    UINTN n;
+    for (n = 0; n < MAX_RAMDISK_COUNT; ++n) {
+        // Skip leading slashes
+        while (*cmdline == '/' || *cmdline == '\\')
+            ++cmdline;
+
+        // Convert to long char
+        CHAR16 path[MAX_PATH_LENGTH];
+        CHAR16 *p = path, *p_last = path + MAX_PATH_LENGTH - 1;
+        for (; *cmdline && *cmdline != ' ' && *cmdline != '\n'; ++cmdline) {
+            if (p >= p_last) {
+                continue;
+            }
+
+            if (*cmdline == '/') {
+                *p++ = '\\';
+            } else {
+                *p++ = *cmdline;
+            }
+        }
+        *p = 0;
+
+        err = uefi_call_wrapper(dir->Open, 5, dir, &files[n].handle, path, EFI_FILE_MODE_READ, 0);
+        if (err) {
+            --n;
+            Print(L"Failed to open initrd '%s'\n", path);
+            goto err;
+        }
+
+        EFI_FILE_INFO *info = LibFileInfo(files[n].handle);
+        if (!info) {
+            Print(L"Failed to get file info for initrd '%s'\n", path);
+            goto err;
+        }
+        files[n].size = info->FileSize;
+        size += info->FileSize;
+        FreePool(info);
+
+        cmdline = find_initrd_option(cmdline);
+        if (!cmdline) {
+            break;
+        }
+    }
+    if (n == MAX_RAMDISK_COUNT) {
+        --n;
+        Print(L"Too many ramdisks listed as 'initrd=' option. Maximum supported are: %d\n", MAX_RAMDISK_COUNT);
+        err = EFI_OUT_OF_RESOURCES;
+        goto err;
+    }
+
+    err = linux_allocate_ramdisk(kernel_header, size);
+    if (err) {
+        goto err;
+    }
+
+    // Load cmdline ramdisks
+    UINTN ramdisk = (UINTN) linux_ramdisk_pointer(kernel_header);
+    for (UINTN i = 0; i <= n; ++i) {
+        err = uefi_call_wrapper(files[i].handle->Read, 3, files[i].handle, &files[i].size, (VOID*) ramdisk);
+        if (err) {
+            Print(L"Failed to read initrd %d\n", i);
+            goto err;
+        }
+
+        ramdisk += files[i].size;
+    }
+
+    err = android_load_ramdisk(android_image, (VOID*) ramdisk);
+
+err:
+    for (UINTN i = 0; i <= n; ++i) {
+        uefi_call_wrapper(files[i].handle->Close, 1, files[i].handle);
+    }
+    uefi_call_wrapper(dir->Close, 1, dir);
+    return err;
+}
+
+static EFI_STATUS load_ramdisk(EFI_HANDLE loader_device,
+        struct linux_setup_header *kernel_header, struct android_image *android_image) {
+    const CHAR8 *initrd = find_initrd_option(linux_cmdline_pointer(kernel_header));
+    if (initrd) {
+        return load_ramdisk_cmdline(loader_device, initrd, kernel_header, android_image);
+    }
+
     EFI_STATUS err = linux_allocate_ramdisk(kernel_header, android_ramdisk_size(android_image));
     if (err) {
         return err;
@@ -243,7 +357,7 @@ static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_HANDLE loader_device,
         goto err;
     }
 
-    err = load_ramdisk(kernel_header, &android_image);
+    err = load_ramdisk(loader_device, kernel_header, &android_image);
     if (err) {
         goto err;
     }
