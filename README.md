@@ -14,25 +14,8 @@ ninja -C build
 ```
 
 ## Usage
-Run `android.efi` from an UEFI Shell using the partition UUID and/or the path
-to the boot image.
-
-Alternatively, with [systemd-boot]:
-
-```
-title    Android
-efi      /android.efi
-options  normal 80868086-8086-8086-8086-000000000100
-```
-
-```
-title    Recovery
-efi      /android.efi
-options  recovery 80868086-8086-8086-8086-000000000101
-```
-
-In this case, the first argument is ignored because this would be `android.efi`
-when using the application in an UEFI shell.
+Run the `android.efi` binary from a boot option, the UEFI Shell or your favorite UEFI bootloader.
+Pass the partition UUID and/or the path to the boot image as command line options.
 
 ### Options
 - Boot from a boot image partition:
@@ -65,6 +48,37 @@ when using the application in an UEFI shell.
   ```
   80868086-8086-8086-8086-000000000100 -- initrd=/intel-ucode.img initrd=/acpi.img
   ```
+
+### systemd-boot
+Example configuration for [systemd-boot]:
+
+```
+title    Android
+efi      /android.efi
+options  normal 80868086-8086-8086-8086-000000000100
+```
+
+In this case, the first argument is ignored because this would be `android.efi`
+when using the application in an UEFI shell.
+
+**Optional:** With the patch
+["Add Android loader type that automatically configures android.efi"](https://github.com/me176c-dev/systemd-boot-me176c/commit/7ea60c70324d059542987d16d518c2677e958772)
+for systemd-boot you can use similar syntactic sugar as for regular Linux configurations:
+
+```
+title    Android
+android  80868086-8086-8086-8086-000000000100
+initrd   /intel-ucode.img
+options  androidboot.mode=charger
+```
+
+Is then equivalent to:
+
+```
+title    Android
+efi      /android.efi
+options  android 80868086-8086-8086-8086-000000000100 -- initrd=/intel-ucode.img androidboot.mode=charger
+```
 
 ## License
 ```
