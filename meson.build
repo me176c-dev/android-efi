@@ -74,9 +74,7 @@ custom_target('android.efi',
         '-j', '.data',
         '-j', '.dynamic',
         '-j', '.dynsym',
-        '-j', '.rel',
-        '-j', '.rela',
-        '-j', '.reloc',
+        '-j', '.rel*',
         '@INPUT@', '@OUTPUT@'
     ],
 
