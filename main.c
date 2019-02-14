@@ -15,7 +15,7 @@ struct android_efi_options {
     EFI_GUID *partition_guid;
     CHAR16 *path;
 
-    CHAR16 *kernel_parameters;
+    const CHAR16 *kernel_parameters;
     UINTN kernel_parameters_length;
 };
 
@@ -36,7 +36,7 @@ enum command_line_argument {
 #define MAX_PATH_LENGTH      256
 
 static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, struct android_efi_options *options) {
-    CHAR16 *opt = loaded_image->LoadOptions;
+    const CHAR16 *opt = loaded_image->LoadOptions;
     if (!opt) {
         goto out;
     }

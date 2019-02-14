@@ -4,7 +4,7 @@
 #include "string.h"
 #include <efilib.h>
 
-CHAR16 *StrnDuplicate(CHAR16 *s, UINTN length) {
+CHAR16 *StrnDuplicate(const CHAR16 *s, UINTN length) {
     UINTN size = length * sizeof(CHAR16) + sizeof(CHAR16); // Include null terminator
     CHAR16* new = AllocatePool(size);
     if (new) {

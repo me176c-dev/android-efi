@@ -6,7 +6,7 @@
 
 #include <efi.h>
 
-CHAR16 *StrnDuplicate(CHAR16 *s, UINTN length);
+CHAR16 *StrnDuplicate(const CHAR16 *s, UINTN length);
 CHAR8 *str_utf16_to_utf8(CHAR8 *dst, const CHAR16 *src, UINTN n);
 
 #endif //ANDROID_EFI_STRING_H
