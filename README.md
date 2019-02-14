@@ -6,7 +6,8 @@ command line, loads the kernel, ramdisk and command line and finally hands over
 control to the kernel.
 
 ## Building
-android-efi is built with [Meson]:
+### Requirements
+android-efi is built with [Meson] and [gnu-efi]:
 
 ```
 meson . build
@@ -103,4 +104,5 @@ shared by Google and used according to terms described in the
 [Creative Commons 3.0 Attribution License](https://creativecommons.org/licenses/by/3.0/).
 
 [Meson]: http://mesonbuild.com
+[gnu-efi]: https://sourceforge.net/projects/gnu-efi/
 [systemd-boot]: https://www.freedesktop.org/wiki/Software/systemd/systemd-boot/
