@@ -1,8 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-#
-# android-efi
 # Copyright (C) 2017 lambdadroid
-#
 
 libpng = dependency('libpng', version: '>=1.6.0')
 

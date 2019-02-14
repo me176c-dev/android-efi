@@ -1,8 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-#
-# android-efi
 # Copyright (C) 2017 lambdadroid
-#
 
 project('android-efi', 'c',
     license: 'GPL-2.0',

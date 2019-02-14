@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * android-efi
- * Copyright (C) 2017 lambdadroid
- */
+// Copyright (C) 2017 lambdadroid
 
 #include <stdlib.h>
 #include <stdio.h>
