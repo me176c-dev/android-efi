@@ -1,4 +1,4 @@
-# android-efi
+# android-efi [![Build Status](https://travis-ci.com/me176c-dev/android-efi.svg?branch=master)](https://travis-ci.com/me176c-dev/android-efi)
 
 android-efi is a simple x86 EFI bootloader for Android™ boot images.
 It accepts the partition GUID and/or path of an Android boot image on the
