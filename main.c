@@ -26,6 +26,10 @@ enum command_line_argument {
     KERNEL_PARAMETERS
 };
 
+#ifndef ANDROID_EFI_VERSION
+#define ANDROID_EFI_VERSION  "unknown"
+#endif
+
 #define STATE_SKIP_SPACES  (1 << 0)
 #define STATE_FOUND_DASH   (1 << 1)
 #define STATE_IMAGE_PATH   (1 << 2)
@@ -56,6 +60,11 @@ static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, st
         // additional kernel parameters
         if (state & STATE_FOUND_DASH) {
             if (c == L'-') {
+                if (StrnCmp(&opt[start], L"--version", length - start) == 0) {
+                    Print(L"android-efi version " ANDROID_EFI_VERSION "\n");
+                    return EFI_ABORTED;
+                }
+
                 argument = KERNEL_PARAMETERS;
                 state |= STATE_SKIP_SPACES;
                 continue;

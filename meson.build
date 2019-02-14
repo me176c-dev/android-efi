@@ -2,6 +2,7 @@
 # Copyright (C) 2017 lambdadroid
 
 project('android-efi', 'c',
+    version: '0.3.0',
     license: 'GPL-2.0',
     default_options: [
         'buildtype=debugoptimized',
@@ -46,7 +47,8 @@ android_efi_lib = shared_library('android-efi',
         '-maccumulate-outgoing-args',
         '-mno-red-zone',
         '-mno-mmx',
-        '-DGNU_EFI_USE_MS_ABI'
+        '-DGNU_EFI_USE_MS_ABI',
+        '-DANDROID_EFI_VERSION="' + meson.project_version() + '"'
     ],
     objects: [efi_crt],
     link_args: [
