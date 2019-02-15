@@ -10,6 +10,10 @@
 #include "linux.h"
 #include "graphics.h"
 
+#ifndef ANDROID_EFI_VERSION
+#define ANDROID_EFI_VERSION  "unknown"
+#endif
+
 struct android_efi_options {
     EFI_GUID guid;
     EFI_GUID *partition_guid;
@@ -20,24 +24,55 @@ struct android_efi_options {
 };
 
 enum command_line_argument {
+    INVALID,
+    FLAG,
+    KERNEL_PARAMETERS,
+
+    // Positional
     FIRST_ARGUMENT,
     IMAGE,
-    END,
-    KERNEL_PARAMETERS
 };
 
-#ifndef ANDROID_EFI_VERSION
-#define ANDROID_EFI_VERSION  "unknown"
-#endif
+#define is_flag(flag, len, f) ((len) == STRING_LENGTH(f) && CompareMem(flag, f, STRING_LENGTH(f)) == 0)
 
-#define STATE_SKIP_SPACES  (1 << 0)
-#define STATE_FOUND_DASH   (1 << 1)
-#define STATE_IMAGE_PATH   (1 << 2)
+static EFI_STATUS parse_flag(const CHAR16 *flag, UINTN len) {
+    if (is_flag(flag, len, L"--version")) {
+        Print(L"android-efi version " ANDROID_EFI_VERSION "\n");
+        return EFI_ABORTED;
+    }
 
-#define RAMDISK_OPTION       "initrd="
-#define RAMDISK_OPTION_SIZE  (sizeof(RAMDISK_OPTION) - sizeof(RAMDISK_OPTION[0]))
-#define MAX_RAMDISK_COUNT    4
-#define MAX_PATH_LENGTH      256
+    CHAR16 *copy = StrnDuplicate(flag, len);
+    Print(L"Unknown command line flag: %s\n", copy);
+    FreePool(copy);
+    return EFI_INVALID_PARAMETER;
+}
+
+static EFI_STATUS parse_image(struct android_efi_options *options, const CHAR16 *opt, UINTN len, UINTN path) {
+    if (path) {
+        options->path = StrnDuplicate(opt, len);
+
+        // Clean path (replace forward slashes with backward slashes)
+        for (UINTN i = 0; i < len; ++i) {
+            if (options->path[i] == L'/') {
+                options->path[i] = L'\\';
+            }
+        }
+    } else if (len) {
+        options->partition_guid = &options->guid;
+        if (!guid_parse(options->partition_guid, opt, len)) {
+            CHAR16 *guid = StrnDuplicate(opt, len);
+            Print(L"Expected valid partition GUID, got '%s'\n", guid);
+            FreePool(guid);
+            return EFI_INVALID_PARAMETER;
+        }
+    }
+
+    return EFI_SUCCESS;
+}
+
+#define STATE_DASHES       3
+#define STATE_SKIP_SPACES  (1 << 2)
+#define STATE_IMAGE_PATH   (1 << 3)
 
 static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, struct android_efi_options *options) {
     const CHAR16 *opt = loaded_image->LoadOptions;
@@ -45,61 +80,64 @@ static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, st
         goto out;
     }
 
-    UINTN length = loaded_image->LoadOptionsSize / sizeof(CHAR16);
-
-    CHAR16 c;
-    UINT8 state = STATE_SKIP_SPACES;
+    UINTN state = STATE_SKIP_SPACES;
     enum command_line_argument argument = FIRST_ARGUMENT;
-
+    enum command_line_argument last_argument = INVALID;
     UINTN start = 0;
 
-    for (UINTN i = 0; i < length; ++i) {
-        c = opt[i];
+    EFI_STATUS err = EFI_SUCCESS;
+    for (UINTN i = 0, length = loaded_image->LoadOptionsSize / sizeof(*opt); i < length; ++i) {
+        CHAR16 c = opt[i];
 
-        // Detects two consecutive dashes ("--") that separate arguments from
-        // additional kernel parameters
-        if (state & STATE_FOUND_DASH) {
-            if (c == L'-') {
-                if (StrnCmp(&opt[start], L"--version", length - start) == 0) {
-                    Print(L"android-efi version " ANDROID_EFI_VERSION "\n");
-                    return EFI_ABORTED;
-                }
-
-                argument = KERNEL_PARAMETERS;
-                state |= STATE_SKIP_SPACES;
+        if (state & STATE_DASHES) {
+            if (c == L'-' && (++state & STATE_DASHES) < STATE_DASHES) {
                 continue;
-            } else {
-                state &= ~STATE_FOUND_DASH;
             }
+
+            // Detect two consecutive dashes ("--") that
+            // separate positional arguments from additional
+            // kernel parameters (or are part of command line flags)
+            if ((state & STATE_DASHES) == 2) {
+                if (c == L' ') {
+                    argument = KERNEL_PARAMETERS;
+                    state |= STATE_SKIP_SPACES;
+                } else if (c) {
+                    last_argument = argument;
+                    argument = FLAG;
+                }
+            }
+
+            state &= ~STATE_DASHES;
         }
 
-        // Skips redundant spaces between arguments
         if (state & STATE_SKIP_SPACES) {
+            // Skip redundant spaces between arguments
             if (c == L' ') {
                 continue;
-            } else {
-                state &= ~STATE_SKIP_SPACES;
-                start = i;
+            }
 
-                if (c == L'-') {
-                    state |= STATE_FOUND_DASH;
-                    continue;
-                }
+            state &= ~STATE_SKIP_SPACES;
+            start = i;
+
+            if (c == L'-') {
+                ++state; // Count dash
+                continue;
             }
         }
 
         if (c && c != L' ') {
             switch (argument) {
+                case IMAGE:
+                    if (!(state & STATE_IMAGE_PATH) && (c == L'/' || c == L'\\')) {
+                        break;
+                    }
+                    continue;
+
                 case KERNEL_PARAMETERS:
                     options->kernel_parameters = &opt[i];
                     options->kernel_parameters_length = length - i;
                     goto out; // Break the loop
 
-                case IMAGE:
-                    if (!(state & STATE_IMAGE_PATH) && (c == L'/' || c == L'\\')) {
-                        break;
-                    }
-                    // fallthrough
                 default:
                     continue;
             }
@@ -110,25 +148,9 @@ static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, st
 
         switch (argument) {
             case IMAGE:
-                if (state & STATE_IMAGE_PATH) {
-                    // Parse file path
-                    options->path = StrnDuplicate(&opt[start], len);
-
-                    // Cleanup path (replace forward slashes with backward slashes)
-                    for (start = 0; start < len; ++start) {
-                        if (options->path[start] == L'/') {
-                            options->path[start] = L'\\';
-                        }
-                    }
-                } else if (len) {
-                    // Parse command line partition GUID
-                    options->partition_guid = &options->guid;
-                    if (!guid_parse(options->partition_guid, &opt[start], len)) {
-                        CHAR16 *guid = StrnDuplicate(&opt[start], len);
-                        Print(L"Expected valid partition GUID, got '%s'\n", guid);
-                        FreePool(guid);
-                        return EFI_INVALID_PARAMETER;
-                    }
+                err = parse_image(options, &opt[start], len, state & STATE_IMAGE_PATH);
+                if (err) {
+                    goto end;
                 }
 
                 state |= STATE_IMAGE_PATH; // Parse path next
@@ -136,6 +158,13 @@ static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, st
 
             case KERNEL_PARAMETERS:
                 goto out; // Break the loop
+
+            case FLAG:
+                err = parse_flag(&opt[start], len);
+                if (err) {
+                    goto end;
+                }
+                break;
 
             default:
                 break;
@@ -146,9 +175,12 @@ static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, st
         }
 
         if (c == L' ') {
-            if (argument != END) {
+            if (argument == FLAG) {
+                argument = last_argument;
+            } else {
                 ++argument;
             }
+
             state |= STATE_SKIP_SPACES;
         }
 
@@ -157,17 +189,15 @@ static EFI_STATUS parse_command_line(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, st
 
 out:
     if (!options->partition_guid && !options->path) {
+        err = EFI_INVALID_PARAMETER;
         Print(L"Usage: android.efi <Boot Partition GUID/Path> [-- Additional Kernel Parameters...]\n");
-        goto err;
     }
 
-    return EFI_SUCCESS;
-
-err:
-    if (options->path) {
+end:
+    if (err) {
         FreePool(options->path);
     }
-    return EFI_INVALID_PARAMETER;
+    return err;
 }
 
 static EFI_STATUS prepare_cmdline(struct linux_setup_header *kernel_header, struct android_image *android_image,
@@ -197,11 +227,15 @@ static EFI_STATUS prepare_cmdline(struct linux_setup_header *kernel_header, stru
     return android_copy_cmdline(android_image, cmdline, cmdline_end - cmdline);
 }
 
+#define RAMDISK_OPTION       "initrd="
+#define MAX_RAMDISK_COUNT    4
+#define MAX_PATH_LENGTH      256
+
 static const CHAR8 *find_initrd_option(const CHAR8 *cmdline) {
     const CHAR8 *tail = cmdline;
-    for (const CHAR8 *first = cmdline + RAMDISK_OPTION_SIZE; cmdline < first && *cmdline; ++cmdline);
+    for (const CHAR8 *first = cmdline + STRING_LENGTH(RAMDISK_OPTION); cmdline < first && *cmdline; ++cmdline);
     for (; *cmdline; ++cmdline, ++tail) {
-        if (CompareMem(tail, RAMDISK_OPTION, RAMDISK_OPTION_SIZE) == 0) {
+        if (CompareMem(tail, RAMDISK_OPTION, STRING_LENGTH(RAMDISK_OPTION)) == 0) {
             return cmdline;
         }
     }

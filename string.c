@@ -48,9 +48,9 @@ CHAR8 *str_utf16_to_utf8(CHAR8 *dst, const CHAR16 *src, UINTN n) {
         }
         *dst++ = 0xf0 + (c >> 18);
         *dst++ = 0x80 + ((c >> 12) & 0x3f);
-        t2:
+    t2:
         *dst++ = 0x80 + ((c >> 6) & 0x3f);
-        t1:
+    t1:
         *dst++ = 0x80 + (c & 0x3f);
     }
 

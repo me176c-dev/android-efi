@@ -6,6 +6,8 @@
 
 #include <efi.h>
 
+#define STRING_LENGTH(s) ((sizeof((s))/sizeof((s)[0]))-1)
+
 CHAR16 *StrnDuplicate(const CHAR16 *s, UINTN length);
 CHAR8 *str_utf16_to_utf8(CHAR8 *dst, const CHAR16 *src, UINTN n);
 
