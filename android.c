@@ -18,7 +18,7 @@ EFI_STATUS android_open_image(struct android_image *image) {
     return EFI_SUCCESS;
 }
 
-EFI_STATUS android_copy_cmdline(struct android_image *image, CHAR8* cmdline, UINTN max_length) {
+EFI_STATUS android_copy_cmdline(const struct android_image *image, CHAR8* cmdline, UINTN max_length) {
     if (max_length <= ANDROID_BOOT_ARGS_SIZE + ANDROID_BOOT_EXTRA_ARGS_SIZE) {
         return EFI_BUFFER_TOO_SMALL;
     }

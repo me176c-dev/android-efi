@@ -8,7 +8,7 @@ static inline UINTN center(UINTN i, UINTN max) {
     return i < max ? (max - i) / 2 : 0;
 }
 
-EFI_STATUS graphics_display_image(struct graphics_image *image) {
+EFI_STATUS graphics_display_image(const struct graphics_image *image) {
     EFI_GRAPHICS_OUTPUT_PROTOCOL *graphics_output;
     EFI_STATUS err = LibLocateProtocol(&GraphicsOutputProtocol, (VOID**) &graphics_output);
     if (err) {

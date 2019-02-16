@@ -38,27 +38,27 @@ struct android_image {
 
 EFI_STATUS android_open_image(struct android_image *image);
 
-static inline EFI_STATUS android_read_kernel(struct android_image *image, UINT64 offset, VOID *kernel, UINTN size) {
+static inline EFI_STATUS android_read_kernel(const struct android_image *image, UINT64 offset, VOID *kernel, UINTN size) {
     return image_read(&image->image, image->header.page_size + offset, kernel, size);
 }
 
-static inline EFI_STATUS android_load_kernel(struct android_image *image, UINT64 offset, VOID *kernel) {
+static inline EFI_STATUS android_load_kernel(const struct android_image *image, UINT64 offset, VOID *kernel) {
     return android_read_kernel(image, offset, kernel, image->header.kernel_size - offset);
 }
 
-static inline UINT64 android_ramdisk_offset(struct android_image *image) {
+static inline UINT64 android_ramdisk_offset(const struct android_image *image) {
     UINTN mask = image->header.page_size - 1;
     return image->header.page_size + ((image->header.kernel_size + mask) & ~mask);
 }
 
-static inline UINT32 android_ramdisk_size(struct android_image *image) {
+static inline UINT32 android_ramdisk_size(const struct android_image *image) {
     return image->header.ramdisk_size;
 }
 
-static inline EFI_STATUS android_load_ramdisk(struct android_image *image, VOID *ramdisk) {
+static inline EFI_STATUS android_load_ramdisk(const struct android_image *image, VOID *ramdisk) {
     return image_read(&image->image, android_ramdisk_offset(image), ramdisk, android_ramdisk_size(image));
 }
 
-EFI_STATUS android_copy_cmdline(struct android_image *image, CHAR8* cmdline, UINTN max_length);
+EFI_STATUS android_copy_cmdline(const struct android_image *image, CHAR8* cmdline, UINTN max_length);
 
 #endif //ANDROID_EFI_ANDROID_H

@@ -12,6 +12,6 @@ struct graphics_image {
     EFI_GRAPHICS_OUTPUT_BLT_PIXEL *blt;
 };
 
-EFI_STATUS graphics_display_image(struct graphics_image *image);
+EFI_STATUS graphics_display_image(const struct graphics_image *image);
 
 #endif //ANDROID_EFI_GRAPHICS_H

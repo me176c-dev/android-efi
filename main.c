@@ -200,8 +200,8 @@ end:
     return err;
 }
 
-static EFI_STATUS prepare_cmdline(struct linux_setup_header *kernel_header, struct android_image *android_image,
-        struct android_efi_options *options) {
+static EFI_STATUS prepare_cmdline(struct linux_setup_header *kernel_header, const struct android_image *android_image,
+        const struct android_efi_options *options) {
     EFI_STATUS err = linux_allocate_cmdline(kernel_header);
     if (err) {
         return err;
@@ -243,7 +243,7 @@ static const CHAR8 *find_initrd_option(const CHAR8 *cmdline) {
 }
 
 static EFI_STATUS load_ramdisk_cmdline(EFI_HANDLE loader_device, const CHAR8 *cmdline,
-        struct linux_setup_header *kernel_header, struct android_image *android_image) {
+        struct linux_setup_header *kernel_header, const struct android_image *android_image) {
     EFI_FILE_HANDLE dir = LibOpenRoot(loader_device);
     if (!dir) {
         Print(L"Failed to open root directory\n");
@@ -335,7 +335,7 @@ err:
 }
 
 static EFI_STATUS load_ramdisk(EFI_HANDLE loader_device,
-        struct linux_setup_header *kernel_header, struct android_image *android_image) {
+        struct linux_setup_header *kernel_header, const struct android_image *android_image) {
     const CHAR8 *initrd = find_initrd_option(linux_cmdline_pointer(kernel_header));
     if (initrd) {
         return load_ramdisk_cmdline(loader_device, initrd, kernel_header, android_image);
@@ -350,7 +350,7 @@ static EFI_STATUS load_ramdisk(EFI_HANDLE loader_device,
 }
 
 static EFI_STATUS load_kernel(EFI_HANDLE loader, EFI_HANDLE loader_device,
-                              struct android_efi_options *options, VOID **boot_params) {
+                              const struct android_efi_options *options, VOID **boot_params) {
     struct android_image android_image;
     EFI_STATUS err = image_open(&android_image.image, loader, loader_device, options->partition_guid, options->path);
     if (options->path) {
@@ -412,7 +412,7 @@ err:
     return err;
 }
 
-extern struct graphics_image splash_image;
+extern const struct graphics_image splash_image;
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *system_table) {
     InitializeLib(image, system_table);
